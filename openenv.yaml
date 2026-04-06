@@ -1,0 +1,117 @@
+name: bug-triage-openenv
+version: "1.0.0"
+description: >
+  AI environment for real-world software bug triage.
+  An agent triages GitHub-style issue reports by classifying severity,
+  detecting duplicates, drafting professional responses, and assigning labels —
+  exactly as a software engineer does every day.
+author: scalerthon-team
+license: MIT
+tags:
+  - openenv
+  - software-engineering
+  - bug-triage
+  - real-world
+  - nlp
+
+environment:
+  entry_point: "main:app"
+  port: 7860
+  framework: fastapi
+
+tasks:
+  - id: bug_classify
+    name: "Bug Severity Classification"
+    description: >
+      Given a software bug report, classify its severity as
+      critical, high, medium, or low. Partial credit for adjacent levels.
+    difficulty: easy
+    max_steps: 5
+    reward_range: [0.0, 1.0]
+    success_threshold: 0.8
+    grader: deterministic
+
+  - id: duplicate_detection
+    name: "Duplicate Issue Detection"
+    description: >
+      Given a new issue and a backlog of 8 existing issues,
+      identify all issues that are duplicates of the new one.
+      Scored by F1 over the set of marked duplicates.
+      Duplicates are non-obvious: same root cause but different symptoms/wording.
+    difficulty: medium
+    max_steps: 10
+    reward_range: [0.0, 1.0]
+    success_threshold: 0.6
+    grader: deterministic
+
+  - id: full_triage
+    name: "Complete Bug Triage Workflow"
+    description: >
+      End-to-end bug triage: classify severity (30%), detect duplicates (30%),
+      draft a professional response to the reporter (20%), assign labels (20%).
+      Agent must plan a multi-step strategy and manage a budget of 15 steps.
+      Hard because duplicates are non-obvious, response requires domain knowledge,
+      and all sub-tasks must be completed before submitting.
+    difficulty: hard
+    max_steps: 15
+    reward_range: [0.0, 1.0]
+    success_threshold: 0.4
+    grader: deterministic
+
+observation_space:
+  type: object
+  description: "Current issue, backlog, triage state, instructions, available actions"
+  properties:
+    task:
+      type: string
+      enum: [bug_classify, duplicate_detection, full_triage]
+    instructions:
+      type: string
+    current_issue:
+      type: object
+      description: "The issue being triaged (id, title, description, component, etc.)"
+    backlog:
+      type: array
+      description: "Existing issues in the backlog (for duplicate tasks)"
+    step:
+      type: integer
+    max_steps:
+      type: integer
+    triage_state:
+      type: object
+      description: "Agent's progress: what has been classified, marked, drafted, etc."
+    available_actions:
+      type: array
+    available_labels:
+      type: array
+    last_action_feedback:
+      type: string
+
+action_space:
+  type: object
+  description: "One of: classify, mark_duplicate, draft_response, assign_labels, submit"
+  properties:
+    action_type:
+      type: string
+      enum: [classify, mark_duplicate, draft_response, assign_labels, submit]
+    severity:
+      type: string
+      enum: [critical, high, medium, low]
+      description: "Required for 'classify'"
+    duplicate_of:
+      type: string
+      description: "Issue ID — required for 'mark_duplicate'"
+    response_text:
+      type: string
+      description: "Drafted reply to the reporter — required for 'draft_response'"
+    labels:
+      type: array
+      items:
+        type: string
+      description: "List of label strings — required for 'assign_labels'"
+
+endpoints:
+  reset: "POST /reset"
+  step: "POST /step"
+  state: "GET /state"
+  health: "GET /health"

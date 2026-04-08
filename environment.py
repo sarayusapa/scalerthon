@@ -137,7 +137,11 @@ class BugTriageEnv:
 
         if scenario_id is None:
             scenario_id = rng.randint(0, len(scenarios) - 1)
-        scenario_id = scenario_id % len(scenarios)
+        if scenario_id >= len(scenarios):
+            raise ValueError(
+                f"scenario_id={scenario_id} is out of range for task '{task}' "
+                f"(valid: 0–{len(scenarios) - 1})."
+            )
         self._scenario = scenarios[scenario_id]
 
         max_steps = TASK_MAX_STEPS[task]
@@ -234,6 +238,8 @@ class BugTriageEnv:
         task = self._state.task
         if self._state.classified:
             return -0.05, False, "Already classified. You cannot classify again.", {}
+        if not action.severity:
+            return -0.05, False, "classify requires 'severity' (critical|high|medium|low).", {}
 
         score = grade_severity(action.severity, self._scenario["correct_severity"])
         self._state.classified = True
@@ -251,7 +257,9 @@ class BugTriageEnv:
         else:
             # Partial reward in full_triage
             reward = score * 0.30
-            return round(reward, 4), False, feedback, {}
+            running = round(self._state.cumulative_reward + reward, 4)
+            feedback += f" Running triage score: {running:.2f}/1.00."
+            return round(reward, 4), False, feedback, {"running_score": running}
 
     def _handle_mark_duplicate(self, action: Action):
         issue_id = action.duplicate_of
@@ -261,18 +269,18 @@ class BugTriageEnv:
         backlog_ids = [b.id for b in self._backlog]
         actual_dupes = self._scenario.get("actual_duplicates", [])
 
-        r = step_reward_duplicate(issue_id, actual_dupes, self._state.duplicates_marked)
-
         if issue_id in self._state.duplicates_marked:
-            feedback = f"Issue {issue_id} was already marked as duplicate."
-        elif issue_id not in backlog_ids:
-            feedback = f"Issue {issue_id} is not in the backlog."
-            r = -0.05
-        elif issue_id in actual_dupes:
-            self._state.duplicates_marked.append(issue_id)
+            return -0.05, False, f"Issue {issue_id} was already marked as duplicate.", {}
+
+        if issue_id not in backlog_ids:
+            return -0.05, False, f"Issue {issue_id} is not in the backlog.", {}
+
+        r = step_reward_duplicate(issue_id, actual_dupes, self._state.duplicates_marked)
+        self._state.duplicates_marked.append(issue_id)
+
+        if issue_id in actual_dupes:
             feedback = f"Marked {issue_id} as duplicate. This is correct! (+{r:.2f})"
         else:
-            self._state.duplicates_marked.append(issue_id)
             feedback = f"Marked {issue_id} as duplicate. This is a false positive. ({r:.2f})"
 
         return round(r, 4), False, feedback, {}
@@ -280,8 +288,8 @@ class BugTriageEnv:
     def _handle_draft_response(self, action: Action):
         if self._state.response_drafted:
             return -0.05, False, "Response already drafted. You cannot draft again.", {}
-        if not action.response_text:
-            return -0.05, False, "draft_response requires 'response_text'.", {}
+        if not action.response_text or not action.response_text.strip():
+            return -0.05, False, "draft_response requires non-empty 'response_text'.", {}
 
         keywords = self._scenario.get("response_quality_keywords", [])
         score = grade_response_quality(action.response_text, keywords)
@@ -289,8 +297,9 @@ class BugTriageEnv:
         self._state.response_text = action.response_text
 
         reward = score * 0.20  # score in [0, 1], weight 20%
-        feedback = f"Response drafted. Quality score: {score:.2f}/1.00 (weighted reward: {reward:.2f})."
-        return round(reward, 4), False, feedback, {}
+        running = round(self._state.cumulative_reward + reward, 4)
+        feedback = f"Response drafted. Quality score: {score:.2f}/1.00 (weighted reward: {reward:.2f}). Running triage score: {running:.2f}/1.00."
+        return round(reward, 4), False, feedback, {"running_score": running}
 
     def _handle_assign_labels(self, action: Action):
         if self._state.labels_assigned:
@@ -298,17 +307,24 @@ class BugTriageEnv:
         if not action.labels:
             return -0.05, False, "assign_labels requires 'labels' (list of strings).", {}
 
+        valid = [l for l in action.labels if l in AVAILABLE_LABELS]
+        invalid = [l for l in action.labels if l not in AVAILABLE_LABELS]
+        if not valid:
+            return -0.05, False, f"None of the provided labels are valid. Invalid: {invalid}. Choose from available_labels.", {}
+
         expected = self._scenario.get("expected_labels", [])
-        score = grade_labels(action.labels, expected)
-        self._state.labels_assigned = action.labels
+        score = grade_labels(valid, expected)
+        self._state.labels_assigned = valid
 
         reward = score * 0.20  # weight 20%
+        running = round(self._state.cumulative_reward + reward, 4)
+        invalid_note = f" (ignored invalid: {invalid})" if invalid else ""
         feedback = (
-            f"Assigned labels: {action.labels}. "
+            f"Assigned labels: {valid}{invalid_note}. "
             f"Label F1: {score:.2f} vs expected {expected}. "
-            f"Reward: {reward:.2f}."
+            f"Reward: {reward:.2f}. Running triage score: {running:.2f}/1.00."
         )
-        return round(reward, 4), False, feedback, {}
+        return round(reward, 4), False, feedback, {"running_score": running}
 
     def _handle_submit(self):
         task = self._state.task

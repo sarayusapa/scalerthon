@@ -472,6 +472,22 @@ DUPLICATE_DETECTION_SCENARIOS = [
         ],
         "actual_duplicates": ["NX-012"],  # NX-044 dupes only NX-012
     },
+    {
+        "new_issue_id": "NX-041",   # Sales director large-file crash (duplicate of NX-010, NX-040)
+        "backlog_ids": [
+            "NX-010", "NX-040", "NX-011", "NX-020",
+            "NX-012", "NX-022", "NX-001", "NX-025",
+        ],
+        "actual_duplicates": ["NX-010", "NX-040"],
+    },
+    {
+        "new_issue_id": "NX-043",   # Offset-cache memory leak (duplicate of NX-011, NX-042)
+        "backlog_ids": [
+            "NX-042", "NX-011", "NX-010", "NX-020",
+            "NX-012", "NX-014", "NX-001", "NX-033",
+        ],
+        "actual_duplicates": ["NX-011", "NX-042"],
+    },
 ]
 
 FULL_TRIAGE_SCENARIOS = [
@@ -482,13 +498,12 @@ FULL_TRIAGE_SCENARIOS = [
             "NX-010", "NX-042", "NX-011", "NX-020",
             "NX-012", "NX-031", "NX-001", "NX-023",
         ],
-        "actual_duplicates": ["NX-011", "NX-042"],  # NX-043 dupes these
+        "actual_duplicates": ["NX-011", "NX-042"],
         "expected_labels": ["bug", "memory-leak", "integrations", "needs-investigation"],
-        "response_quality_keywords": ["investigate", "memory", "offset", "cache", "profil", "leak", "thank"],
+        "response_quality_keywords": ["memory", "offset", "cache", "profil", "leak"],
         "description": (
-            "Hard: agent must correctly classify a nuanced high-severity issue, "
-            "identify two non-obvious duplicates described with different terminology, "
-            "draft a technically accurate response, and assign domain-specific labels."
+            "Hard: nuanced high-severity issue; two non-obvious duplicates with different "
+            "terminology; domain-specific labels required."
         ),
     },
     {
@@ -500,9 +515,39 @@ FULL_TRIAGE_SCENARIOS = [
         ],
         "actual_duplicates": ["NX-010", "NX-040"],
         "expected_labels": ["bug", "crash", "file-upload"],
-        "response_quality_keywords": ["upload", "file", "size", "memory", "workaround", "investigating", "thank"],
+        "response_quality_keywords": ["upload", "file", "size", "memory"],
         "description": (
             "Hard: large-file crash with two stylistically different duplicate reports."
+        ),
+    },
+    {
+        "issue_id": "NX-013",
+        "correct_severity": "high",
+        "backlog_ids": [
+            "NX-001", "NX-010", "NX-020", "NX-021",
+            "NX-022", "NX-030", "NX-031", "NX-025",
+        ],
+        "actual_duplicates": [],  # No duplicates in backlog — agent must submit with zero marks
+        "expected_labels": ["bug", "notifications", "api", "regression"],
+        "response_quality_keywords": ["notification", "email", "sendgrid", "alert", "api"],
+        "description": (
+            "Hard: no duplicates exist — agent must resist false positives; "
+            "regression label and API component knowledge required."
+        ),
+    },
+    {
+        "issue_id": "NX-002",
+        "correct_severity": "critical",
+        "backlog_ids": [
+            "NX-001", "NX-003", "NX-010", "NX-020",
+            "NX-021", "NX-030", "NX-011", "NX-014",
+        ],
+        "actual_duplicates": [],  # Unique data-loss event, no duplicates
+        "expected_labels": ["bug", "data-loss", "database", "regression"],
+        "response_quality_keywords": ["migration", "data", "database", "pipeline", "billing", "audit"],
+        "description": (
+            "Hard: critical data-loss issue; agent must recognise severity correctly "
+            "and assign data-loss + regression labels without duplicates to distract it."
         ),
     },
 ]

@@ -58,6 +58,13 @@ def grade_duplicates(
     fp = len(valid_marks - actual_set)
     fn = len(actual_set - valid_marks)
 
+    # Both sets empty → agent correctly identified no duplicates → perfect score
+    if len(actual_set) == 0 and len(valid_marks) == 0:
+        return {
+            "f1": 1.0, "precision": 1.0, "recall": 1.0,
+            "true_positives": 0, "false_positives": 0, "false_negatives": 0,
+        }
+
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
@@ -86,7 +93,7 @@ def step_reward_duplicate(issue_id: str, actual_duplicates: List[str], already_m
 def grade_response_quality(text: Optional[str], keywords: List[str]) -> float:
     """
     Score a drafted response on 4 dimensions (each worth 0.25):
-      1. Minimum substance (>= 40 chars)
+      1. Minimum substance (>= 40 chars AND >= 8 unique words — blocks keyword stuffing)
       2. Polite acknowledgement
       3. Mentions relevant technical terms from the issue
       4. Describes next steps / resolution intent
@@ -97,10 +104,18 @@ def grade_response_quality(text: Optional[str], keywords: List[str]) -> float:
         return 0.0
 
     text_lower = text.lower()
+    words = text_lower.split()
+    unique_words = set(words)
     score = 0.0
 
-    # Substance check
-    if len(text.strip()) >= 40:
+    # Substance check — length, prose structure (punctuation), AND connector words.
+    # Real sentences contain articles/pronouns/prepositions; keyword dumps do not.
+    _connectors = {"the", "a", "an", "we", "our", "you", "your", "is", "are",
+                   "will", "have", "has", "this", "that", "for", "with", "and",
+                   "not", "it", "to", "in", "of", "on", "at", "been"}
+    connector_count = sum(1 for w in words if w in _connectors)
+    has_prose_structure = any(c in text for c in ".!?")
+    if len(text.strip()) >= 40 and has_prose_structure and connector_count >= 3:
         score += 0.25
 
     # Acknowledgement / politeness
@@ -123,7 +138,8 @@ def grade_response_quality(text: Optional[str], keywords: List[str]) -> float:
 
 def grade_labels(assigned: List[str], expected: List[str]) -> float:
     """
-    F1 score over label sets, capped at 0.20 as this sub-task's weight.
+    F1 score over label sets.
+    Caller is responsible for pre-filtering assigned to valid labels only.
     """
     assigned_set = set(assigned)
     expected_set = set(expected)

@@ -1,3 +1,12 @@
+---
+title: Bug Triage OpenEnv
+emoji: 🐛
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+---
+
 # Bug Triage OpenEnv
 
 An OpenEnv environment where AI agents triage real-world software bug reports — exactly the workflow engineering teams run daily on GitHub, Jira, and Linear.

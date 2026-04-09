@@ -57,9 +57,9 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
     print(f"[STEP] step={step} action={action_s} reward={reward:.2f} done={done_s} error={err}", flush=True)
 
 
-def log_end(success: bool, steps: int, rewards: List[float]) -> None:
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_s = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={str(success).lower()} steps={steps} rewards={rewards_s}", flush=True)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_s}", flush=True)
 
 
 # ── Environment HTTP client ────────────────────────────────────────────────────
@@ -299,7 +299,7 @@ def run_episode(client: OpenAI, task: str, scenario_id: int = 0) -> float:
         print(f"[DEBUG] Episode error: {e}", flush=True)
         error_msg = str(e)
     finally:
-        log_end(success=success, steps=steps_taken, rewards=rewards)
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
     return score
 
